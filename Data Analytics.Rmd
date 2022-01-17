@@ -1,0 +1,99 @@
+---
+title: "Data Analytics"
+author: "Salman"
+date: "17/01/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Session Info
+
+Best efforts have been made to make the research as much reproducible as possible. However, it was beyond my skills set to code the process of extracting and merging the data from various data.worldbank.org website. All the data files from where the compiled data was created can be found in my github repository, along with the compiled excel data file. 
+
+```{r, cache=T}
+sessionInfo()
+getwd()
+```
+
+### Load Packages
+
+```{r}
+library(xlsx)
+library(dplyr)
+library(car)
+```
+
+### Load and Process Data
+
+```{r, cache=T}
+data <- read.xlsx("Compiled Data.xlsx", sheetIndex = 1, startRow = 11)
+names(data)
+str(data)
+subset_data <- subset(data, Years >= 1970 & Years <= 2019)
+```
+
+### Descriptive Statistics
+
+We see very low FDI, net inflows, in Pakistan before 1990. In 1990s the FDI started to increase to noticeable levels due to the changes in Pakistan trade policies to attract more foreign direct investments. These included better investment infrastructure and lesser constraints imposed due to bureaucracy.  We also noticed a reductions in some tax levels for foreign investors after  1990s. Pakistan has shown an overall increasing trend in the FDI inflows, however we see fluctuations throughout the years we have taken into consideration in our study. One major factor can be attributed to the high political instability in Pakistan. Every four years when the government changes, we observe drastic changes in policies. Such changes in policies after every government tenure discourages long term investors. A very unusual fluctuation is shown during 2007-2009 period. These changes can be attributed to the boom and bust cycle of global financial crisis. FDI inflows, Merchandise Exports and Merchandise Imports have shown increasing trend. These values have indeed increased as the values are accounted for in US dollars and throughout these years Pakistan’s currency has depreciated a lot. Inflation has fluctuated a lot between the years with above 10% in 2019 compared to around 5% in 1970. In case of Pakistan, the basket of goods that is analysed to measure inflation rates includes food and non-alcoholic beverages (35 percent of total weight); housing, water, electricity, gas and fuels (29 percent); clothing and footwear (8 percent) and transport (7 percent). The index also includes furnishings and household equipment (4 percent), education (4 percent), communication (3 percent) and health (2 percent). The remaining 8 percent is composed by: recreation and culture, restaurants and hotels, alcoholic beverages and tobacco and other goods and services. These statistics are taken from tradingeconomics.com. Domestic Credit (% of GDP) has shown a slight declining trend in recent years.
+
+
+```{r, cache=T}
+summary(subset_data)
+with(subset_data, plot(Years,fdi, col = "blue"))
+with(subset_data, plot(Years,dom.cre, col = "green"))
+with(subset_data, plot(Years,inf, col = "red"))
+with(subset_data, plot(Years,exp, col = "yellow"))
+with(subset_data, plot(Years,imp, col = "purple"))
+```
+
+### Regression Modelling
+
+Some of the data points were removed due to NaN values. For the regression, we have annual data from 1971-2019 except for the values of 1973 and 1974. 
+
+The variables were transformed for regression as follow:
+1. Change in the log of FDI, net inflows, is used as the independent variable.
+2. The explanatory variables are: Change in domestic credit (% of Gdp), change in the log of merchandise imports, change in the log of merchandise exports, and change in inflation.
+
+The above mentioned transformation were done to tackle linearity and stationarity concerns. 
+
+The regression model is as follows:
+∆logFDI = β0 + β1∆DomCre(%) + β2∆logMimp + β3∆logMexp + β4∆Inf% 
+
+Variance inflation factors are under control for all explanatory variables. There is no evidence of multicollinearity in the data. Model captures 38.57% of variance in change if foreign direct investments. Overall model is significant, however, not all explanatory variables are significant. Model cannot be used for inference. Further developments are required!
+
+```{r, cache=T}
+fdi_lgc <- diff(log(subset_data$fdi), lag = 1)
+subset_data <- cbind(subset_data,c(0,fdi_lgc))
+
+dom.cre_c <- diff(subset_data$dom.cre, lag = 1)
+subset_data <- cbind(subset_data,c(0,dom.cre_c))
+
+imp_lgc <- diff(log(subset_data$imp), lag = 1)
+subset_data <- cbind(subset_data,c(0,imp_lgc))
+
+exp_lgc <- diff(log(subset_data$exp), lag = 1)
+subset_data <- cbind(subset_data,c(0,exp_lgc))
+
+inf_c <- diff(subset_data$inf, lag = 1)
+subset_data <- cbind(subset_data,c(0,inf_c))
+
+names(subset_data) <- c("Years", "fdi", "dom.cre", "inf", "exp",
+                        "imp", "fdi_lgc", "dom.cre_c", "imp_lgc", "exp_lgc", "inf_c")
+names(subset_data)
+
+subset_data2 <- subset_data %>%
+        filter(Years >= 1971 & Years != 1973 & Years != 1974) %>%
+        select(fdi_lgc,dom.cre_c,imp_lgc,exp_lgc,inf_c)
+
+model <- lm(fdi_lgc~dom.cre_c+imp_lgc+exp_lgc+inf_c, data = subset_data2)
+summary(model)
+vif(model)
+```
+
+
+I hope this work was worthy of your attention. The model here is not fit for any inference. However, I do plan to further deepen my understanding on stochastic processes soon and further develop the model. I have recently started to learn R Programming language and open to any suggestions for improving my work. 
+
+Thank You!
